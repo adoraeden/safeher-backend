@@ -1,3 +1,6 @@
 node_modules/
 .env
 *.env
+serviceAccountKey.json
+.env
+.env.example

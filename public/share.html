@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SafeHer — Live Location</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  body { margin:0; font-family: sans-serif; background:#0B0F1A; color:#F1F5F9; }
+  #status { padding: 12px 16px; font-size: 14px; background:#141A28; border-bottom:1px solid #232A3D; }
+  #map { height: calc(100vh - 50px); width: 100%; }
+</style>
+</head>
+<body>
+<div id="status">Loading…</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get('id');
+  const statusEl = document.getElementById('status');
+
+  if (!sessionId) {
+    statusEl.textContent = 'No share ID provided.';
+  } else {
+    const map = L.map('map');
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    let marker = null;
+    let initialized = false;
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/location-share/${sessionId}`);
+        if (!res.ok) {
+          const body = await res.json();
+          statusEl.textContent = body.error || 'This location share is unavailable.';
+          return;
+        }
+        const data = await res.json();
+        const latlng = [data.lat, data.lng];
+        if (!marker) {
+          marker = L.marker(latlng).addTo(map);
+        } else {
+          marker.setLatLng(latlng);
+        }
+        if (!initialized) {
+          map.setView(latlng, 15);
+          initialized = true;
+        }
+        const expires = new Date(data.expiresAt);
+        statusEl.textContent = `${data.sharerName} — sharing until ${expires.toLocaleTimeString()}`;
+      } catch (e) {
+        statusEl.textContent = 'Could not reach the location share.';
+      }
+    }
+
+    poll();
+    setInterval(poll, 8000);
+  }
+</script>
+</body>
+</html>
